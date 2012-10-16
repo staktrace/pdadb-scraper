@@ -11,7 +11,7 @@ if [ ! -d "cpus" ]; then
     mkdir cpus
 fi
 
-echo "Device,URL,RAM,CPU,Display Resolution,Instruction Set"
+echo "Device, URL, RAM, CPU, Display Resolution, Instruction Set, OpenGL ES 2.0, Vector Floating Point"
 
 cat devicelist.html |
 awk "/devices found/ { process=1 } /<a title/ { if (process) print $1 } /<a name/ { process=0 }" |
@@ -24,7 +24,7 @@ while read id url; do
 
     CPU=$(cat devices/$id.html | awk '/<td.*m=cpu/ { if (found) print $0; found=0 } /CPU:/ { found=1 }' | sed -e 's#^.*href="index.php?m=cpu&id=\([^&]*\)&.*$#\1#')
     cat devices/$id.html | grep "Detailed Technical Datasheet" | sed -e 's#^.*Datasheet of \(.*\)</h2>.*$#\1#' | xargs echo -n
-    echo -n ", http://pdadb.net/$url&view=1"
+    echo -n "," "http://pdadb.net/$url&view=1"
     cat devices/$id.html | awk '/<td/ { if (found) print $4; found=0 } /RAM.*capacity:/ { found=1 }' | xargs echo -n ","
     cat devices/$id.html | awk '/<td/ { if (found) print $4; found=0 } /CPU.*Clock:/ { found=1 }' | xargs echo -n ","
     cat devices/$id.html | awk '/<td/ { if (found) print $4 $5 $6; found=0 } /Display.*Resolution:/ { found=1 }' | xargs echo -n ","
@@ -33,8 +33,11 @@ while read id url; do
         if [ ! -f "cpus/$CPU.html" ]; then
             curl "http://pdadb.net/index.php?m=cpu&id=$CPU" > cpus/$CPU.html
         fi
-        cat cpus/$CPU.html | awk '/<td/ { if (found) print $4; found=0 } /Supported.*Instruction.*Set/ { found=1 }' | xargs echo ","
+        cat cpus/$CPU.html | awk '/<td/ { if (found) print $4; found=0 } /Supported.*Instruction.*Set/ { found=1 }' | xargs echo -n ","
+        cat cpus/$CPU.html | awk '/OpenGL ES 2.0/ { if (found) print "Yes"; found=0 } /Special Features:/ { found=1 }' | xargs echo -n ","
+        cat cpus/$CPU.html | awk 'BEGIN { IGNORECASE=1 } /vector floating point/ { if (found) print "Yes"; found=0 } /Special Features:/ { found=1 }' | xargs echo -n ","
     else
-        echo ","
+        echo -n "," "," ","
     fi
+    echo ""
 done
