@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+if [ ! -f devicelist.html ]; then
+    curl -d posted=1 -d num_rows_max=0 -d START=START -d year_min=1 -d year_max=1 -d cpu= -d cpu_clk_min=1 -d rom_free_min= -d expansion=2 -d os_family=a -d lcd=2 -d lcd_x= -d lcd_y= -d lcd_diag_min=1 -d phone_data=2 -d usb_connector=2 -d pos=2 -d gps_extras=2 -d cam_resolution=2 -d batt_build=2 "http://pdadb.net/index.php?m=pdachooser" > devicelist.html
+fi
+
+if [ ! -d "devices" ]; then
+    mkdir devices
+fi
+if [ ! -d "cpus" ]; then
+    mkdir cpus
+fi
+
+echo "Device,URL,RAM,CPU,Display Resolution,Instruction Set"
+
+cat devicelist.html |
+awk "/devices found/ { process=1 } /<a title/ { if (process) print $1 } /<a name/ { process=0 }" |
+sed -e 's#</div><div#\n&#g' |
+sed -e 's#^.*href="\(.*id=\(.*\)\)".*$#\2 \1#' |
+while read id url; do
+    if [ ! -f "devices/$id.html" ]; then
+        curl "http://pdadb.net/$url&view=1" > devices/$id.html
+    fi
+
+    CPU=$(cat devices/$id.html | awk '/<td.*m=cpu/ { if (found) print $0; found=0 } /CPU:/ { found=1 }' | sed -e 's#^.*href="index.php?m=cpu&id=\([^&]*\)&.*$#\1#')
+    cat devices/$id.html | grep "Detailed Technical Datasheet" | sed -e 's#^.*Datasheet of \(.*\)</h2>.*$#\1#' | xargs echo -n
+    echo -n ", http://pdadb.net/$url&view=1"
+    cat devices/$id.html | awk '/<td/ { if (found) print $4; found=0 } /RAM.*capacity:/ { found=1 }' | xargs echo -n ","
+    cat devices/$id.html | awk '/<td/ { if (found) print $4; found=0 } /CPU.*Clock:/ { found=1 }' | xargs echo -n ","
+    cat devices/$id.html | awk '/<td/ { if (found) print $4 $5 $6; found=0 } /Display.*Resolution:/ { found=1 }' | xargs echo -n ","
+
+    if [ -n "$CPU" ]; then
+        if [ ! -f "cpus/$CPU.html" ]; then
+            curl "http://pdadb.net/index.php?m=cpu&id=$CPU" > cpus/$CPU.html
+        fi
+        cat cpus/$CPU.html | awk '/<td/ { if (found) print $4; found=0 } /Supported.*Instruction.*Set/ { found=1 }' | xargs echo ","
+    else
+        echo ","
+    fi
+done
